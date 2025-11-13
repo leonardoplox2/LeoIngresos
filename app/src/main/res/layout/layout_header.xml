@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/headerLayout"
+    android:layout_width="match_parent"
+    android:layout_height="100dp"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="16dp"
+    android:background="@android:color/holo_orange_light">
+
+    <ImageView
+        android:id="@+id/imgAvatar"
+        android:layout_width="53dp"
+        android:layout_height="52dp"
+        android:layout_marginEnd="12dp"
+        android:contentDescription="Avatar"
+        android:scaleType="centerCrop"
+        android:src="@drawable/avatar" />
+
+    <TextView
+        android:id="@+id/tvBienvenido"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Bienvenido [Usuario]"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/holo_red_dark"
+        android:gravity="center"
+        android:layout_weight="1" />
+
+    <ImageView
+        android:id="@+id/imgConfig"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@android:drawable/ic_menu_manage"
+        android:contentDescription="Configuración"
+        android:layout_marginStart="12dp" />
+
+
+</LinearLayout>
