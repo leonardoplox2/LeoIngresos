@@ -13,8 +13,8 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.cardview.widget.CardView
-import com.google.gson.Gson // 🚨 IMPORTANTE: Necesario para guardar/cargar JSON
-import com.google.gson.reflect.TypeToken // 🚨 IMPORTANTE: Necesario para Gson
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 
 class MainActivity : AppCompatActivity() {
 
@@ -30,12 +30,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cardVenta: CardView
     private lateinit var cardGastos: CardView
     private lateinit var cardInventario: CardView
+    private lateinit var cardDescarga: CardView // 🆕 NUEVA CARD
 
     // 🔹 PERSISTENCIA NECESARIA PARA GUARDAR MOVIMIENTOS
     private var listaMovimientos = mutableListOf<Movimiento>()
     private val PREFS_BALANCE = "BalancePrefs"
     private val KEY_MOVIMIENTOS = "movimientos"
-
 
     // ➡️ LAUNCHER: Para manejar el resultado del registro de movimiento (Ingreso/Egreso)
     private val registroMovimientoLauncher = registerForActivityResult(
@@ -87,6 +87,7 @@ class MainActivity : AppCompatActivity() {
         cardVenta = findViewById(R.id.cardVenta)
         cardGastos = findViewById(R.id.cardGastos)
         cardInventario = findViewById(R.id.cardInventario)
+        cardDescarga = findViewById(R.id.cardDescarga) // 🆕 NUEVA CARD
         overlayVenta = findViewById(R.id.overlayVenta)
         layoutOpcionesVenta = findViewById(R.id.layoutOpcionesVenta)
         btnVentaLibre = findViewById(R.id.btnVentaLibre)
@@ -120,6 +121,12 @@ class MainActivity : AppCompatActivity() {
         cardInventario.setOnClickListener {
             val intent = Intent(this, InventarioActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            startActivity(intent)
+        }
+
+        // 🆕 cardDescarga: Navega a la pantalla de Descarga en Segundo Plano
+        cardDescarga.setOnClickListener {
+            val intent = Intent(this, DescargaActivity::class.java)
             startActivity(intent)
         }
 
