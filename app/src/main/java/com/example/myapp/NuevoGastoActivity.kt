@@ -91,6 +91,8 @@ class NuevoGastoActivity : AppCompatActivity() {
         // Busca el RadioButton seleccionado y obtiene su texto. Si no hay selección, usa "Efectivo".
         val metodoPago = findViewById<RadioButton>(selectedId)?.text.toString() ?: "Efectivo"
 
+        SonidoManager.reproducirSonidoGasto(this)
+
         // 3. Devolver resultado a BalanceActivity
         val resultIntent = Intent()
         resultIntent.putExtra("monto", monto)
@@ -100,6 +102,14 @@ class NuevoGastoActivity : AppCompatActivity() {
         resultIntent.putExtra("categoria", categoria) // La categoría es opcional para el objeto Movimiento
 
         setResult(Activity.RESULT_OK, resultIntent)
+
+        Toast.makeText(this, "🛑 Gasto registrado correctamente", Toast.LENGTH_SHORT).show()
+
         finish()
+    }
+    override fun onDestroy() {
+        super.onDestroy()
+        // Liberar recursos de audio
+        SonidoManager.liberarRecursos()
     }
 }

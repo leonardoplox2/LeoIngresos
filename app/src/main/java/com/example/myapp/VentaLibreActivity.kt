@@ -114,6 +114,9 @@
         }
 
         private fun mostrarDialogoExito() {
+
+            SonidoManager.reproducirSonidoVenta(this)
+
             val builder = androidx.appcompat.app.AlertDialog.Builder(this)
             builder.setTitle("✅ Venta creada")
             builder.setMessage("Se registró en tu balance con el valor ${"S/ %.2f".format(totalFinal)}")
@@ -143,5 +146,10 @@
                 finish()
             }
             builder.show()
+        }
+        override fun onDestroy() {
+            super.onDestroy()
+            // Liberar recursos de audio
+            SonidoManager.liberarRecursos()
         }
     }

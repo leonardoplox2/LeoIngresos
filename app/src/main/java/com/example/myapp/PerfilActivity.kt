@@ -31,6 +31,12 @@ class PerfilActivity : AppCompatActivity() {
             return
         }
 
+        // 🗺️ Botón para abrir el mapa GPS
+        findViewById<Button>(R.id.btnObtenerUbicacion).setOnClickListener {
+            val intent = Intent(this, MapaGPSActivity::class.java)
+            startActivity(intent)
+        }
+
         // Botón Editar Perfil
         findViewById<Button>(R.id.btnEditarPerfil).setOnClickListener {
             startActivity(Intent(this, EditarPerfilActivity::class.java))
@@ -134,7 +140,7 @@ class EditarPerfilActivity : AppCompatActivity() {
                     .apply()
 
                 Toast.makeText(this, "Datos actualizados correctamente", Toast.LENGTH_SHORT).show()
-                finish() // 🔹 Solo cerramos esta actividad
+                finish()
             } else {
                 Toast.makeText(this, "Error al actualizar los datos", Toast.LENGTH_SHORT).show()
             }
