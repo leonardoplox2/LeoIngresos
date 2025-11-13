@@ -25,33 +25,54 @@ class DownloadService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (isDownloading) {
+            Log.d(TAG, "⚠️ El servicio ya está ejecutándose")
+            return START_STICKY
+        }
+
         isDownloading = true
         currentProgress = 0
 
         Log.d(TAG, "🚀 Servicio de descarga iniciado...")
+        enviarActualizacion(0, "Iniciando descarga...")
 
         // Simulación de descarga con un hilo (Thread)
         thread {
-            var progress = 0
+            try {
+                var progress = 0
 
-            while (isDownloading && progress <= 100) {
-                Thread.sleep(1000) // Simula 1 segundo de descarga por cada 10%
-
-                if (isDownloading) {
+                while (isDownloading && progress <= 100) {
+                    // Primero actualizar y LUEGO dormir
                     currentProgress = progress
                     Log.d(TAG, "📥 Descargando... $progress%")
 
                     // Enviar broadcast para actualizar la UI
                     enviarActualizacion(progress, "Descargando... $progress%")
 
-                    progress += 10
-                }
-            }
+                    // Si ya llegamos al 100%, salir
+                    if (progress >= 100) {
+                        Log.d(TAG, "✅ Descarga completada al 100%")
+                        enviarActualizacion(100, "✅ Descarga completada")
+                        break
+                    }
 
-            if (progress >= 100 && isDownloading) {
-                Log.d(TAG, "✅ Descarga completada al 100%")
-                enviarActualizacion(100, "✅ Descarga completada")
-                stopSelf() // Detiene el servicio al terminar
+                    // Incrementar progreso
+                    progress += 10
+
+                    // Dormir DESPUÉS de enviar
+                    if (isDownloading) {
+                        Thread.sleep(1000) // Simula 1 segundo de descarga
+                    }
+                }
+
+                // Detener el servicio cuando termine
+                Thread.sleep(500)
+                stopSelf()
+
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error en la descarga: ${e.message}")
+                enviarActualizacion(currentProgress, "❌ Error en la descarga")
+                stopSelf()
             }
         }
 
@@ -62,11 +83,16 @@ class DownloadService : Service() {
      * Envía un broadcast con el progreso actual
      */
     private fun enviarActualizacion(progress: Int, status: String) {
-        val intent = Intent(ACTION_UPDATE).apply {
-            putExtra(EXTRA_PROGRESS, progress)
-            putExtra(EXTRA_STATUS, status)
+        try {
+            val intent = Intent(ACTION_UPDATE).apply {
+                putExtra(EXTRA_PROGRESS, progress)
+                putExtra(EXTRA_STATUS, status)
+            }
+            sendBroadcast(intent)
+            Log.d(TAG, "📡 Broadcast enviado: $progress% - $status")
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error al enviar broadcast: ${e.message}")
         }
-        sendBroadcast(intent)
     }
 
     override fun onDestroy() {
