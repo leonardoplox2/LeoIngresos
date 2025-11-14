@@ -16,6 +16,18 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApp"
         tools:targetApi="31">
+
+        <!-- 🆕 SPLASH ACTIVITY - Primera pantalla -->
+        <activity
+            android:name=".SplashActivity"
+            android:exported="true"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
         <activity
             android:name=".DescargaActivity"
             android:exported="false" />
@@ -35,12 +47,6 @@
             android:name=".VentaLibreActivity"
             android:exported="false" />
         <activity
-            android:name=".MovimientosAdapter"
-            android:exported="false" />
-        <activity
-            android:name=".MovimientoFragment"
-            android:exported="false" />
-        <activity
             android:name=".InventarioActivity"
             android:exported="false" />
         <activity
@@ -51,22 +57,19 @@
             android:exported="false" />
         <activity
             android:name=".PerfilActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:theme="@style/Theme.MyApp"/>
         <activity
             android:name=".RegisterActivity"
-            android:exported="false" /> <!-- LoginActivity será la primera en abrir -->
+            android:exported="false" />
+
         <activity
             android:name=".LoginActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
+            android:exported="false" />
 
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity> <!-- MainActivity (se abrirá después del login) -->
         <activity
             android:name=".MainActivity"
-            android:exported="true" />
+            android:exported="false" />
 
         <meta-data
             android:name="com.google.android.geo.API_KEY"

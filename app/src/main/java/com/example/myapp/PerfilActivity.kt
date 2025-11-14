@@ -10,7 +10,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.tusistema.DBhelper
-
+import android.view.Menu
+import android.view.MenuItem
+import androidx.appcompat.widget.Toolbar
 // ---------------- PERFIL ACTIVITY ----------------
 class PerfilActivity : AppCompatActivity() {
 
@@ -21,6 +23,10 @@ class PerfilActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_perfil)
 
+        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar) // Necesario para que Android gestione el menú
+        supportActionBar?.setDisplayShowTitleEnabled(false)
+
         dbHelper = DBhelper(this)
         prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
 
@@ -30,6 +36,7 @@ class PerfilActivity : AppCompatActivity() {
             finish()
             return
         }
+
 
         // 🗺️ Botón para abrir el mapa GPS
         findViewById<Button>(R.id.btnObtenerUbicacion).setOnClickListener {
@@ -52,6 +59,39 @@ class PerfilActivity : AppCompatActivity() {
             prefs.edit().clear().apply()
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
+        }
+    }
+
+
+
+    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
+        // ESTA FUNCIÓN HACE QUE EL MENÚ APAREZCA
+        menuInflater.inflate(R.menu.menu_perfil, menu)
+        return true
+    }
+
+    /** Maneja la selección de ítems del menú (⋮) */
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+
+            R.id.menu_configuracion -> {
+                Toast.makeText(this, "⚙️ Ir a Configuración", Toast.LENGTH_SHORT).show()
+                true
+            }
+
+            // CÓDIGO ACTUALIZADO PARA IR A MAINACTIVITY
+            R.id.menu_menu_principal -> {
+                val intent = Intent(this, MainActivity::class.java)
+                startActivity(intent)
+                true
+            }
+
+            R.id.menu_exportar_datos -> {
+                Toast.makeText(this, "💾 Exportando Datos...", Toast.LENGTH_SHORT).show()
+                true
+            }
+
+            else -> super.onOptionsItemSelected(item)
         }
     }
 

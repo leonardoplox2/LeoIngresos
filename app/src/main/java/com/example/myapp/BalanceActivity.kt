@@ -267,4 +267,5 @@ class BalanceActivity : AppCompatActivity() {
             }
             .start()
     }
+
 }
