@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.google.services)
 }
 
 android {
@@ -37,6 +38,8 @@ android {
 
 dependencies {
 
+
+
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -46,7 +49,18 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     implementation("com.google.code.gson:gson:2.10.1")
+
+    // Gson
+    implementation("com.google.code.gson:gson:2.10.1")
+
+    // 🔥 FIREBASE - Authentication
+    implementation("com.google.firebase:firebase-auth:23.0.0")
+
+    // 🔥 GOOGLE SIGN-IN
+    implementation("com.google.android.gms:play-services-auth:21.1.0")
+
     // Google Maps
     implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("com.google.android.gms:play-services-location:21.0.0")
+
 }
