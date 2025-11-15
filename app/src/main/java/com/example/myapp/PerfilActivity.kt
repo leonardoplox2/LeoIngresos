@@ -57,12 +57,11 @@ class PerfilActivity : AppCompatActivity() {
             finish()
         }
 
-        // 🔥 Botón cerrar sesión - CORREGIDO
+        // 🔥 Botón cerrar sesión
         findViewById<Button>(R.id.btnCerrarSesionPerfil).setOnClickListener {
             val isGoogleAuth = prefs.getBoolean("isGoogleAuth", false)
 
             if (isGoogleAuth) {
-                // 🔥 Cerrar sesión de Firebase y Google
                 FirebaseAuth.getInstance().signOut()
 
                 val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -73,16 +72,11 @@ class PerfilActivity : AppCompatActivity() {
                 googleSignInClient.signOut()
             }
 
-            // 🔥 Limpiar TODAS las SharedPreferences
             prefs.edit().clear().apply()
-
-            // 🔥 IMPORTANTE: Limpiar también el caché de la actividad
-            // Esto asegura que al volver a abrir, se recarguen los datos correctos
             finish()
 
             Toast.makeText(this, "Sesión cerrada", Toast.LENGTH_SHORT).show()
 
-            // Ir al login
             val intent = Intent(this, LoginActivity::class.java)
             intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
             startActivity(intent)
@@ -120,52 +114,97 @@ class PerfilActivity : AppCompatActivity() {
 
     private fun cargarDatosPerfil() {
         val usuario = prefs.getString("usuario", null) ?: return
+        val isGoogleAuth = prefs.getBoolean("isGoogleAuth", false)
 
-        android.util.Log.d("PerfilActivity", "Cargando datos para usuario: $usuario")
+        android.util.Log.d("PerfilActivity", "════════════════════════════════")
+        android.util.Log.d("PerfilActivity", "📱 CARGANDO PERFIL")
+        android.util.Log.d("PerfilActivity", "👤 Usuario: $usuario")
+        android.util.Log.d("PerfilActivity", "🔐 Google Auth: $isGoogleAuth")
 
-        // 🔥 SIEMPRE CARGAR DE SQLITE PRIMERO (es la fuente de verdad)
-        val datos = dbHelper.obtenerUsuario(usuario)
+        // 🔥 PASO 1: Leer de SharedPreferences PRIMERO
+        val correoPrefs = prefs.getString("correo", "")
+        android.util.Log.d("PerfilActivity", "📋 Correo en SharedPrefs: '$correoPrefs'")
 
-        if (datos != null) {
-            android.util.Log.d("PerfilActivity", "Datos encontrados en SQLite: $datos")
+        // 🔥 PASO 2: Intentar cargar de SQLite
+        val datosSQLite = dbHelper.obtenerUsuario(usuario)
+        android.util.Log.d("PerfilActivity", "🗄️ Datos en SQLite: ${datosSQLite != null}")
 
-            val nombre = datos["nombre_apellido"]?.split(" ")?.getOrElse(0) { "" } ?: ""
-            val apellido = datos["nombre_apellido"]?.split(" ")?.drop(1)?.joinToString(" ") ?: ""
-            val numero = datos["numero"] ?: ""
-            val dni = datos["dni"] ?: ""
-            val correo = datos["correo"] ?: ""
-
-            android.util.Log.d("PerfilActivity", "Mostrando: $nombre $apellido | $numero | $dni | $correo")
-
-            // 🔥 Actualizar SharedPreferences con los datos más recientes
-            prefs.edit()
-                .putString("nombre", nombre)
-                .putString("apellido", apellido)
-                .putString("numero", numero)
-                .putString("dni", dni)
-                .putString("correo", correo)
-                .apply()
-
-            // Mostrar datos en TextViews
-            findViewById<TextView>(R.id.tvNombrePerfil).text = "$nombre $apellido"
-            findViewById<TextView>(R.id.tvNumeroPerfil).text = "Número: ${if (numero.isBlank()) "-" else numero}"
-            findViewById<TextView>(R.id.tvDniPerfil).text = "DNI: ${if (dni.isBlank()) "-" else dni}"
-            findViewById<TextView>(R.id.tvCorreoPerfil).text = "Correo: ${if (correo.isBlank()) "-" else correo}"
-        } else {
-            android.util.Log.w("PerfilActivity", "No se encontraron datos en SQLite")
-
-            // 🔥 Si no hay datos en SQLite, usar SharedPreferences (caso de error o datos temporales)
-            val nombre = prefs.getString("nombre", "") ?: ""
-            val apellido = prefs.getString("apellido", "") ?: ""
-            val numero = prefs.getString("numero", "") ?: ""
-            val dni = prefs.getString("dni", "") ?: ""
-            val correo = prefs.getString("correo", "") ?: ""
-
-            findViewById<TextView>(R.id.tvNombrePerfil).text = "$nombre $apellido"
-            findViewById<TextView>(R.id.tvNumeroPerfil).text = "Número: ${if (numero.isBlank()) "-" else numero}"
-            findViewById<TextView>(R.id.tvDniPerfil).text = "DNI: ${if (dni.isBlank()) "-" else dni}"
-            findViewById<TextView>(R.id.tvCorreoPerfil).text = "Correo: ${if (correo.isBlank()) "-" else correo}"
+        if (datosSQLite != null) {
+            android.util.Log.d("PerfilActivity", "   - nombre_apellido: ${datosSQLite["nombre_apellido"]}")
+            android.util.Log.d("PerfilActivity", "   - numero: ${datosSQLite["numero"]}")
+            android.util.Log.d("PerfilActivity", "   - dni: ${datosSQLite["dni"]}")
+            android.util.Log.d("PerfilActivity", "   - correo: '${datosSQLite["correo"]}'")
         }
+
+        val nombre: String
+        val apellido: String
+        val numero: String
+        val dni: String
+        val correo: String
+
+        if (datosSQLite != null) {
+            // ✅ Usar datos de SQLite
+            val nombreCompleto = datosSQLite["nombre_apellido"] ?: ""
+            val partes = nombreCompleto.split(" ")
+            nombre = partes.getOrElse(0) { "" }
+            apellido = partes.drop(1).joinToString(" ")
+            numero = datosSQLite["numero"] ?: ""
+            dni = datosSQLite["dni"] ?: ""
+
+            // 🔥 Si el correo en SQLite está vacío pero es Google Auth, usar el usuario (email)
+            val correoSQLite = datosSQLite["correo"] ?: ""
+            correo = if (correoSQLite.isBlank() && isGoogleAuth) {
+                android.util.Log.d("PerfilActivity", "⚠️ Correo vacío en SQLite, usando usuario: $usuario")
+                usuario
+            } else {
+                correoSQLite
+            }
+
+        } else {
+            // ❌ No hay datos en SQLite, usar SharedPreferences
+            android.util.Log.d("PerfilActivity", "⚠️ No hay datos en SQLite, usando SharedPreferences")
+            nombre = prefs.getString("nombre", "") ?: ""
+            apellido = prefs.getString("apellido", "") ?: ""
+            numero = prefs.getString("numero", "") ?: ""
+            dni = prefs.getString("dni", "") ?: ""
+
+            // 🔥 Si el correo en SharedPrefs está vacío pero es Google Auth, usar el usuario
+            val correoSP = prefs.getString("correo", "") ?: ""
+            correo = if (correoSP.isBlank() && isGoogleAuth) {
+                android.util.Log.d("PerfilActivity", "⚠️ Correo vacío en SharedPrefs, usando usuario: $usuario")
+                usuario
+            } else {
+                correoSP
+            }
+        }
+
+        android.util.Log.d("PerfilActivity", "✅ Datos finales a mostrar:")
+        android.util.Log.d("PerfilActivity", "   - Nombre: $nombre")
+        android.util.Log.d("PerfilActivity", "   - Apellido: $apellido")
+        android.util.Log.d("PerfilActivity", "   - Número: $numero")
+        android.util.Log.d("PerfilActivity", "   - DNI: $dni")
+        android.util.Log.d("PerfilActivity", "   - Correo: '$correo'")
+        android.util.Log.d("PerfilActivity", "════════════════════════════════")
+
+        // 🔥 Sincronizar SharedPreferences con los datos finales
+        prefs.edit()
+            .putString("nombre", nombre)
+            .putString("apellido", apellido)
+            .putString("numero", numero)
+            .putString("dni", dni)
+            .putString("correo", correo)
+            .apply()
+
+        // 🔥 Mostrar en la UI
+        findViewById<TextView>(R.id.tvNombrePerfil).text = if (nombre.isNotBlank() || apellido.isNotBlank()) {
+            "$nombre $apellido".trim()
+        } else {
+            "Usuario"
+        }
+
+        findViewById<TextView>(R.id.tvNumeroPerfil).text = "Número: ${if (numero.isBlank()) "-" else numero}"
+        findViewById<TextView>(R.id.tvDniPerfil).text = "DNI: ${if (dni.isBlank()) "-" else dni}"
+        findViewById<TextView>(R.id.tvCorreoPerfil).text = "Correo: ${if (correo.isBlank()) "-" else correo}"
     }
 }
 
@@ -197,12 +236,30 @@ class EditarPerfilActivity : AppCompatActivity() {
         val etCorreo = findViewById<EditText>(R.id.etCorreo)
         val btnGuardar = findViewById<Button>(R.id.btnGuardar)
 
-        // Cargar datos actuales desde SharedPreferences
-        etNombre.setText(prefs.getString("nombre", ""))
-        etApellido.setText(prefs.getString("apellido", ""))
-        etNumero.setText(prefs.getString("numero", ""))
-        etDni.setText(prefs.getString("dni", ""))
-        etCorreo.setText(prefs.getString("correo", ""))
+        // 🔥 Cargar datos actuales
+        val datosSQLite = dbHelper.obtenerUsuario(usuario)
+
+        if (datosSQLite != null) {
+            val nombreCompleto = datosSQLite["nombre_apellido"] ?: ""
+            val partes = nombreCompleto.split(" ")
+            etNombre.setText(partes.getOrElse(0) { "" })
+            etApellido.setText(partes.drop(1).joinToString(" "))
+            etNumero.setText(datosSQLite["numero"] ?: "")
+            etDni.setText(datosSQLite["dni"] ?: "")
+
+            // 🔥 Si el correo está vacío en SQLite y es Google Auth, usar el usuario
+            val correoSQLite = datosSQLite["correo"] ?: ""
+            etCorreo.setText(if (correoSQLite.isBlank() && isGoogleAuth) usuario else correoSQLite)
+        } else {
+            etNombre.setText(prefs.getString("nombre", ""))
+            etApellido.setText(prefs.getString("apellido", ""))
+            etNumero.setText(prefs.getString("numero", ""))
+            etDni.setText(prefs.getString("dni", ""))
+
+            // 🔥 Si el correo está vacío en SharedPrefs y es Google Auth, usar el usuario
+            val correoPrefs = prefs.getString("correo", "") ?: ""
+            etCorreo.setText(if (correoPrefs.isBlank() && isGoogleAuth) usuario else correoPrefs)
+        }
 
         btnGuardar.setOnClickListener {
             val nombre = etNombre.text.toString().trim()
@@ -212,33 +269,14 @@ class EditarPerfilActivity : AppCompatActivity() {
             val correo = etCorreo.text.toString().trim()
             val nombreCompleto = "$nombre $apellido"
 
-            // 🔥 VALIDAR CAMPOS VACÍOS
             if (nombre.isEmpty() || apellido.isEmpty()) {
                 Toast.makeText(this, "❌ El nombre y apellido son obligatorios", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // 🔥 VALIDAR DUPLICADOS
-            if (numero.isNotBlank() && dbHelper.numeroExiste(numero, usuario)) {
-                Toast.makeText(this, "❌ El número '$numero' ya está registrado con otra cuenta", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-
-            if (dni.isNotBlank() && dbHelper.dniExiste(dni, usuario)) {
-                Toast.makeText(this, "❌ El DNI '$dni' ya está registrado con otra cuenta", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-
-            if (correo.isNotBlank() && dbHelper.correoExiste(correo, usuario)) {
-                Toast.makeText(this, "❌ El correo '$correo' ya está registrado con otra cuenta", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
-            }
-
-            // 🔥 ACTUALIZAR EN SQLITE
             val actualizado = dbHelper.actualizarUsuario(usuario, nombreCompleto, numero, dni, correo)
 
             if (actualizado) {
-                // 🔥 Actualizar SharedPreferences inmediatamente
                 prefs.edit()
                     .putString("nombre", nombre)
                     .putString("apellido", apellido)
@@ -247,20 +285,13 @@ class EditarPerfilActivity : AppCompatActivity() {
                     .putString("correo", correo)
                     .apply()
 
-                // 🔥 DEBUG: Verificar que se guardó
-                android.util.Log.d("EditarPerfil", "Datos actualizados en SQLite")
-                android.util.Log.d("EditarPerfil", "Nombre: $nombre $apellido")
-                android.util.Log.d("EditarPerfil", "Número: $numero")
-                android.util.Log.d("EditarPerfil", "DNI: $dni")
-                android.util.Log.d("EditarPerfil", "Correo: $correo")
-
+                android.util.Log.d("EditarPerfil", "✅ Datos actualizados")
                 Toast.makeText(this, "✅ Datos actualizados correctamente", Toast.LENGTH_SHORT).show()
 
-                // 🔥 Usar setResult para indicar que hubo cambios
                 setResult(RESULT_OK)
                 finish()
             } else {
-                android.util.Log.e("EditarPerfil", "Error al actualizar en SQLite")
+                android.util.Log.e("EditarPerfil", "❌ Error al actualizar")
                 Toast.makeText(this, "❌ Error al actualizar. Verifica que los datos no estén duplicados", Toast.LENGTH_LONG).show()
             }
         }

@@ -17,11 +17,9 @@ import com.google.firebase.auth.GoogleAuthProvider
 
 class LoginActivity : AppCompatActivity() {
 
-    // 🔥 FIREBASE AUTH
     private lateinit var auth: FirebaseAuth
     private lateinit var googleSignInClient: GoogleSignInClient
 
-    // 🔥 LAUNCHER para Google Sign-In
     private val launcher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
         try {
@@ -37,17 +35,14 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activitylogin)
 
-        // 🔥 INICIALIZAR FIREBASE
         auth = FirebaseAuth.getInstance()
 
-        // 🔥 CONFIGURAR GOOGLE SIGN-IN
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
         googleSignInClient = GoogleSignIn.getClient(this, gso)
 
-        // VISTAS EXISTENTES
         val etUsuario = findViewById<EditText>(R.id.etUsuario)
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
@@ -56,7 +51,7 @@ class LoginActivity : AppCompatActivity() {
 
         val dbHelper = DBhelper(this)
 
-        // LOGIN TRADICIONAL (tu código existente)
+        // LOGIN TRADICIONAL
         btnLogin.setOnClickListener {
             val usuario = etUsuario.text.toString().trim()
             val password = etPassword.text.toString().trim()
@@ -81,7 +76,7 @@ class LoginActivity : AppCompatActivity() {
                     .putString("numero", datos?.get("numero") ?: "")
                     .putString("dni", datos?.get("dni") ?: "")
                     .putString("correo", datos?.get("correo") ?: "")
-                    .putBoolean("isGoogleAuth", false) // 🔥 Login tradicional
+                    .putBoolean("isGoogleAuth", false)
                     .apply()
 
                 Toast.makeText(this, "Bienvenido $nombre", Toast.LENGTH_SHORT).show()
@@ -92,7 +87,6 @@ class LoginActivity : AppCompatActivity() {
             }
         }
 
-        // 🔥 LOGIN CON GOOGLE
         btnGoogleSignIn.setOnClickListener {
             val signInIntent = googleSignInClient.signInIntent
             launcher.launch(signInIntent)
@@ -103,7 +97,6 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    // 🔥 AUTENTICACIÓN CON FIREBASE USANDO GOOGLE
     private fun firebaseAuthWithGoogle(idToken: String) {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         auth.signInWithCredential(credential)
@@ -111,52 +104,88 @@ class LoginActivity : AppCompatActivity() {
                 if (task.isSuccessful) {
                     val user = auth.currentUser
                     if (user != null) {
-                        // 🔥 GUARDAR EN SQLITE TAMBIÉN
-                        val dbHelper = DBhelper(this)
                         val email = user.email ?: ""
                         val displayName = user.displayName ?: "Usuario Google"
 
-                        // Verificar si ya existe en la base de datos
-                        val usuarioExistente = dbHelper.obtenerUsuario(email)
+                        Log.d("LoginActivity", "════════════════════════════════")
+                        Log.d("LoginActivity", "🔥 INICIO DE SESIÓN CON GOOGLE")
+                        Log.d("LoginActivity", "📧 Email: $email")
+                        Log.d("LoginActivity", "👤 Nombre: $displayName")
+                        Log.d("LoginActivity", "════════════════════════════════")
+
+                        val dbHelper = DBhelper(this)
+
+                        // 🔥 PASO 1: Verificar si el usuario existe
+                        var usuarioExistente = dbHelper.obtenerUsuario(email)
+                        Log.d("LoginActivity", "📊 Usuario existente en DB: ${usuarioExistente != null}")
 
                         if (usuarioExistente == null) {
-                            // 🔥 CREAR USUARIO EN SQLITE
+                            // 🔥 PASO 2: Crear usuario nuevo
+                            Log.d("LoginActivity", "➕ Creando nuevo usuario en SQLite...")
                             val resultado = dbHelper.insertarUsuario(
                                 nombreApellido = displayName,
                                 usuario = email,
-                                password = "GOOGLE_AUTH_${user.uid}", // Password especial para usuarios de Google
+                                password = "GOOGLE_AUTH_${user.uid}",
                                 numero = ""
                             )
 
-                            if (!resultado) {
-                                Log.w("LoginActivity", "No se pudo crear usuario en SQLite")
+                            if (resultado) {
+                                Log.d("LoginActivity", "✅ Usuario creado exitosamente")
+                            } else {
+                                Log.e("LoginActivity", "❌ Error al crear usuario")
                             }
                         }
+
+                        // 🔥 PASO 3: FORZAR actualización del correo (siempre, incluso si ya existe)
+                        Log.d("LoginActivity", "🔄 Actualizando correo en SQLite...")
+                        val actualizado = dbHelper.actualizarUsuario(
+                            usuario = email,
+                            nombreApellido = displayName,
+                            numero = "",
+                            dni = "",
+                            correo = email  // 🔥 IMPORTANTE: Asegurar que el correo se guarde
+                        )
+
+                        if (actualizado) {
+                            Log.d("LoginActivity", "✅ Correo actualizado en SQLite: $email")
+                        } else {
+                            Log.e("LoginActivity", "❌ Error al actualizar correo en SQLite")
+                        }
+
+                        // 🔥 PASO 4: Verificar que el correo se guardó correctamente
+                        usuarioExistente = dbHelper.obtenerUsuario(email)
+                        val correoGuardado = usuarioExistente?.get("correo") ?: ""
+                        Log.d("LoginActivity", "🔍 Verificación - Correo guardado: '$correoGuardado'")
 
                         // Separar nombre y apellido
                         val nombres = displayName.split(" ")
                         val nombre = nombres.getOrElse(0) { "Usuario" }
                         val apellido = nombres.drop(1).joinToString(" ")
 
-                        // Guardar en SharedPreferences
+                        // 🔥 PASO 5: Guardar en SharedPreferences
                         val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
                         prefs.edit()
                             .clear()
                             .putString("usuario", email)
                             .putString("nombre", nombre)
                             .putString("apellido", apellido)
-                            .putString("correo", email)
+                            .putString("correo", email)  // 🔥 Guardar correo
                             .putString("numero", "")
                             .putString("dni", "")
-                            .putBoolean("isGoogleAuth", true) // 🔥 Marcamos que es login de Google
+                            .putBoolean("isGoogleAuth", true)
                             .apply()
+
+                        // 🔥 PASO 6: Verificar que se guardó en SharedPreferences
+                        val correoPrefs = prefs.getString("correo", "NO_GUARDADO")
+                        Log.d("LoginActivity", "🔍 Verificación - Correo en SharedPrefs: '$correoPrefs'")
+                        Log.d("LoginActivity", "════════════════════════════════")
 
                         Toast.makeText(this, "¡Bienvenido $nombre!", Toast.LENGTH_SHORT).show()
                         startActivity(Intent(this, MainActivity::class.java))
                         finish()
                     }
                 } else {
-                    Log.e("LoginActivity", "Error en Firebase Auth: ${task.exception?.message}")
+                    Log.e("LoginActivity", "❌ Error en Firebase Auth: ${task.exception?.message}")
                     Toast.makeText(this, "Error al autenticar con Firebase: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                 }
             }
@@ -164,12 +193,10 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        // 🔥 Verificar si ya hay un usuario autenticado
         val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
         val usuario = prefs.getString("usuario", null)
 
         if (usuario != null) {
-            // Ya hay sesión activa, ir a MainActivity
             startActivity(Intent(this, MainActivity::class.java))
             finish()
         }
