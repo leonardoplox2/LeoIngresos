@@ -9,7 +9,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import com.example.tusistema.DBhelper
+import com.example.myapp.DBhelper
 import com.google.android.gms.auth.api.signin.*
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
@@ -29,7 +29,7 @@ class LoginActivity : AppCompatActivity() {
             firebaseAuthWithGoogle(account.idToken!!)
         } catch (e: Exception) {
             Log.e("LoginActivity", "Error en Google Sign-In: ${e.message}")
-            Toast.makeText(this, "Error al iniciar sesión con Google", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Error al iniciar sesión con Google: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -52,8 +52,6 @@ class LoginActivity : AppCompatActivity() {
         val etPassword = findViewById<EditText>(R.id.etPassword)
         val btnLogin = findViewById<Button>(R.id.btnLogin)
         val tvCrearCuenta = findViewById<TextView>(R.id.tvCrearCuenta)
-
-        // 🔥 NUEVO BOTÓN DE GOOGLE SIGN-IN (lo agregaremos al XML después)
         val btnGoogleSignIn = findViewById<Button>(R.id.btnGoogleSignIn)
 
         val dbHelper = DBhelper(this)
@@ -83,6 +81,7 @@ class LoginActivity : AppCompatActivity() {
                     .putString("numero", datos?.get("numero") ?: "")
                     .putString("dni", datos?.get("dni") ?: "")
                     .putString("correo", datos?.get("correo") ?: "")
+                    .putBoolean("isGoogleAuth", false) // 🔥 Login tradicional
                     .apply()
 
                 Toast.makeText(this, "Bienvenido $nombre", Toast.LENGTH_SHORT).show()
@@ -112,18 +111,41 @@ class LoginActivity : AppCompatActivity() {
                 if (task.isSuccessful) {
                     val user = auth.currentUser
                     if (user != null) {
-                        // Guardar datos en SharedPreferences
-                        val nombres = user.displayName?.split(" ") ?: listOf("Usuario", "")
+                        // 🔥 GUARDAR EN SQLITE TAMBIÉN
+                        val dbHelper = DBhelper(this)
+                        val email = user.email ?: ""
+                        val displayName = user.displayName ?: "Usuario Google"
+
+                        // Verificar si ya existe en la base de datos
+                        val usuarioExistente = dbHelper.obtenerUsuario(email)
+
+                        if (usuarioExistente == null) {
+                            // 🔥 CREAR USUARIO EN SQLITE
+                            val resultado = dbHelper.insertarUsuario(
+                                nombreApellido = displayName,
+                                usuario = email,
+                                password = "GOOGLE_AUTH_${user.uid}", // Password especial para usuarios de Google
+                                numero = ""
+                            )
+
+                            if (!resultado) {
+                                Log.w("LoginActivity", "No se pudo crear usuario en SQLite")
+                            }
+                        }
+
+                        // Separar nombre y apellido
+                        val nombres = displayName.split(" ")
                         val nombre = nombres.getOrElse(0) { "Usuario" }
                         val apellido = nombres.drop(1).joinToString(" ")
 
+                        // Guardar en SharedPreferences
                         val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
                         prefs.edit()
                             .clear()
-                            .putString("usuario", user.email ?: "")
+                            .putString("usuario", email)
                             .putString("nombre", nombre)
                             .putString("apellido", apellido)
-                            .putString("correo", user.email ?: "")
+                            .putString("correo", email)
                             .putString("numero", "")
                             .putString("dni", "")
                             .putBoolean("isGoogleAuth", true) // 🔥 Marcamos que es login de Google
@@ -135,24 +157,21 @@ class LoginActivity : AppCompatActivity() {
                     }
                 } else {
                     Log.e("LoginActivity", "Error en Firebase Auth: ${task.exception?.message}")
-                    Toast.makeText(this, "Error al autenticar con Firebase", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Error al autenticar con Firebase: ${task.exception?.message}", Toast.LENGTH_LONG).show()
                 }
             }
     }
 
     override fun onStart() {
         super.onStart()
-        // 🔥 Verificar si ya hay un usuario autenticado con Google
-        val currentUser = auth.currentUser
-        if (currentUser != null) {
-            // Ya hay sesión de Google activa
-            val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
-            val isGoogleAuth = prefs.getBoolean("isGoogleAuth", false)
+        // 🔥 Verificar si ya hay un usuario autenticado
+        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+        val usuario = prefs.getString("usuario", null)
 
-            if (isGoogleAuth) {
-                startActivity(Intent(this, MainActivity::class.java))
-                finish()
-            }
+        if (usuario != null) {
+            // Ya hay sesión activa, ir a MainActivity
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
         }
     }
 }

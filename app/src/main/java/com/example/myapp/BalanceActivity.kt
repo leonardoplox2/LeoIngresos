@@ -21,24 +21,22 @@ class BalanceActivity : AppCompatActivity() {
     private lateinit var txtBalance: TextView
     private lateinit var txtIngresosAmount: TextView
     private lateinit var txtEgresosAmount: TextView
-
-    // Nueva vista para la búsqueda
     private lateinit var etBuscar: EditText
 
     private lateinit var btnNuevaVenta: Button
     private lateinit var btnVentaLibre: Button
-    private lateinit var btnNuevoGasto: Button // 🚨 EGRESO: Inicialización del botón Gasto
+    private lateinit var btnNuevoGasto: Button
     private lateinit var layoutOpcionesVenta: LinearLayout
     private lateinit var overlayVenta: FrameLayout
 
-    // 🔹 PERSISTENCIA
+    // 🔹 PERSISTENCIA - AHORA CON USUARIO ESPECÍFICO
     private var listaMovimientos = mutableListOf<Movimiento>()
     private val PREFS_BALANCE = "BalancePrefs"
-    private val KEY_MOVIMIENTOS = "movimientos"
+    // 🔥 KEY_MOVIMIENTOS ahora será dinámico por usuario
+    private lateinit var keyMovimientosUsuario: String
 
     // 🔹 FRAGMENTO
     private val movimientoFragment = MovimientoFragment()
-
 
     // ➡️ LAUNCHER: Manejo del resultado de VentaLibreActivity (Ingreso)
     private val ventaLibreResultLauncher = registerForActivityResult(
@@ -46,61 +44,56 @@ class BalanceActivity : AppCompatActivity() {
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
-            // 1. Obtener los datos de la venta registrada
             val valor = data?.getDoubleExtra("valor", 0.0) ?: 0.0
             val concepto = data?.getStringExtra("concepto") ?: "Venta Libre"
             val fecha = data?.getStringExtra("fecha") ?: ""
             val metodoPago = data?.getStringExtra("metodoPago") ?: "Efectivo"
 
             if (valor > 0.0) {
-                // 2. Crear y añadir el nuevo ingreso
                 val nuevoIngreso = Movimiento("Ingreso", concepto, valor, fecha, metodoPago)
                 listaMovimientos.add(nuevoIngreso)
-
-                // 3. Guardar y actualizar UI (Ingresos y lista)
                 guardarMovimientos()
                 actualizarUIBalance()
-
                 Toast.makeText(this, "✅ Venta de $concepto registrada por S/ ${DecimalFormat("#,##0.00").format(valor)}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-    // ➡️ LAUNCHER: Manejo del resultado de NuevoGastoActivity (Egreso) 🚨 EGRESO
+    // ➡️ LAUNCHER: Manejo del resultado de NuevoGastoActivity (Egreso)
     private val nuevoGastoResultLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val data = result.data
-            // 1. Obtener los datos del gasto registrado
             val monto = data?.getDoubleExtra("monto", 0.0) ?: 0.0
             val concepto = data?.getStringExtra("concepto") ?: "Gasto"
             val fecha = data?.getStringExtra("fecha") ?: ""
             val metodoPago = data?.getStringExtra("metodoPago") ?: "Efectivo"
-            // La categoría se obtiene, pero no es necesaria en el objeto Movimiento básico.
 
             if (monto > 0.0) {
-                // 2. Crear y añadir el nuevo egreso. Tipo = "Egreso".
                 val nuevoEgreso = Movimiento("Egreso", concepto, monto, fecha, metodoPago)
                 listaMovimientos.add(nuevoEgreso)
-
-                // 3. Guardar y actualizar UI (Egresos y lista)
                 guardarMovimientos()
                 actualizarUIBalance()
-
                 Toast.makeText(this, "🛑 Gasto de $concepto registrado por S/ ${DecimalFormat("#,##0.00").format(monto)}", Toast.LENGTH_LONG).show()
             }
         }
     }
 
-
     override fun onResume() {
         super.onResume()
 
-        // 1. Recargar datos
-        cargarMovimientos()
+        // 🔥 ACTUALIZAR KEY DEL USUARIO EN CADA RESUME
+        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+        val usuario = prefs.getString("usuario", "default_user") ?: "default_user"
+        keyMovimientosUsuario = "movimientos_$usuario"
 
-        // 2. Actualizar la interfaz (CardView y la lista del Fragmento)
+        // 🔥 ACTUALIZAR NOMBRE EN EL HEADER
+        val nombre = prefs.getString("nombre", "Usuario")
+        val apellido = prefs.getString("apellido", "")
+        tvNombre.text = "$nombre $apellido"
+
+        cargarMovimientos()
         actualizarUIBalance()
     }
 
@@ -108,13 +101,19 @@ class BalanceActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_balance)
 
+        // 🔥 OBTENER USUARIO ACTUAL Y CREAR KEY ÚNICA
+        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
+        val usuario = prefs.getString("usuario", "default_user") ?: "default_user"
+
+        // 🔥 Crear key única por usuario
+        keyMovimientosUsuario = "movimientos_$usuario"
+
         // 1. INICIALIZACIÓN DE VISTAS DE BALANCE Y DATOS
         txtBalance = findViewById(R.id.txtBalance)
         txtIngresosAmount = findViewById(R.id.txtIngresosAmount)
         txtEgresosAmount = findViewById(R.id.txtEgresosAmount)
 
         // 2. INICIALIZACIÓN Y LÓGICA DEL HEADER (Nombre y Perfil)
-        val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
         val nombre = prefs.getString("nombre", "Usuario")
         val apellido = prefs.getString("apellido", "")
 
@@ -159,10 +158,9 @@ class BalanceActivity : AppCompatActivity() {
         overlayVenta = findViewById(R.id.overlayVenta)
         layoutOpcionesVenta = findViewById(R.id.layoutOpcionesVenta)
         btnVentaLibre = findViewById(R.id.btnVentaLibre)
-        btnNuevoGasto = findViewById(R.id.btnNuevoGasto) // 🚨 EGRESO: Inicialización del botón Gasto
+        btnNuevoGasto = findViewById(R.id.btnNuevoGasto)
         val btnCerrarOverlay = findViewById<ImageView>(R.id.btnCerrarVenta)
 
-        // Lógica para mostrar la modal
         btnNuevaVenta.setOnClickListener {
             overlayVenta.visibility = View.VISIBLE
             layoutOpcionesVenta.visibility = View.VISIBLE
@@ -174,14 +172,12 @@ class BalanceActivity : AppCompatActivity() {
         }
         btnCerrarOverlay.setOnClickListener { cerrarModalVenta() }
 
-        // LÓGICA DEL BOTÓN VENTA LIBRE (Ingreso)
         btnVentaLibre.setOnClickListener {
             cerrarModalVenta()
             val intent = Intent(this, VentaLibreActivity::class.java)
             ventaLibreResultLauncher.launch(intent)
         }
 
-        // LÓGICA DEL BOTÓN NUEVO GASTO (Egreso) 🚨 EGRESO
         btnNuevoGasto.setOnClickListener {
             cerrarModalVenta()
             val intent = Intent(this, NuevoGastoActivity::class.java)
@@ -216,7 +212,7 @@ class BalanceActivity : AppCompatActivity() {
 
     private fun cargarMovimientos() {
         val prefs = getSharedPreferences(PREFS_BALANCE, MODE_PRIVATE)
-        val json = prefs.getString(KEY_MOVIMIENTOS, null)
+        val json = prefs.getString(keyMovimientosUsuario, null)
 
         if (json != null) {
             val type = object : TypeToken<MutableList<Movimiento>>() {}.type
@@ -230,24 +226,21 @@ class BalanceActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_BALANCE, MODE_PRIVATE)
         val editor = prefs.edit()
         val json = Gson().toJson(listaMovimientos)
-        editor.putString(KEY_MOVIMIENTOS, json)
+        editor.putString(keyMovimientosUsuario, json)
         editor.apply()
     }
 
     private fun actualizarUIBalance() {
-        // 1. Cálculo
         val ingresosTotales = listaMovimientos.filter { it.tipo == "Ingreso" }.sumOf { it.monto }
-        val egresosTotales = listaMovimientos.filter { it.tipo == "Egreso" }.sumOf { it.monto } // 🚨 EGRESO: Se incluye en el cálculo
+        val egresosTotales = listaMovimientos.filter { it.tipo == "Egreso" }.sumOf { it.monto }
         val balance = ingresosTotales - egresosTotales
 
         val df = DecimalFormat("S/ #,##0.00")
 
-        // 2. Actualizar CardView
         txtBalance.text = df.format(balance)
         txtIngresosAmount.text = df.format(ingresosTotales)
-        txtEgresosAmount.text = df.format(egresosTotales) // 🚨 EGRESO: Se actualiza el monto de egresos
+        txtEgresosAmount.text = df.format(egresosTotales)
 
-        // 3. Actualizar el Fragmento con la nueva lista
         actualizarFragmento(listaMovimientos)
     }
 
@@ -267,5 +260,4 @@ class BalanceActivity : AppCompatActivity() {
             }
             .start()
     }
-
 }

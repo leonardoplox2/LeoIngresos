@@ -6,7 +6,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.tusistema.DBhelper
+import com.example.myapp.DBhelper
 
 class RegisterActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +30,7 @@ class RegisterActivity : AppCompatActivity() {
             val repetirPassword = etRepetirPassword.text.toString().trim()
             val numero = etNumero.text.toString().trim()
 
+            // 🔥 VALIDACIONES
             if (nombreApellido.isEmpty() || usuario.isEmpty() || password.isEmpty() ||
                 repetirPassword.isEmpty() || numero.isEmpty()) {
                 Toast.makeText(this, "Completa todos los campos", Toast.LENGTH_SHORT).show()
@@ -41,7 +42,27 @@ class RegisterActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
+            // 🔥 Validar longitud mínima de contraseña
+            if (password.length < 6) {
+                Toast.makeText(this, "La contraseña debe tener al menos 6 caracteres", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // 🔥 VERIFICAR SI EL USUARIO YA EXISTE
+            if (dbHelper.usuarioExiste(usuario)) {
+                Toast.makeText(this, "❌ El usuario '$usuario' ya está registrado", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            // 🔥 VERIFICAR SI EL NÚMERO YA EXISTE
+            if (dbHelper.numeroExiste(numero)) {
+                Toast.makeText(this, "❌ El número '$numero' ya está registrado con otra cuenta", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+
+            // 🔥 INTENTAR REGISTRAR
             val insertado = dbHelper.insertarUsuario(nombreApellido, usuario, password, numero)
+
             if (insertado) {
                 // Separar nombre y apellido
                 val nombres = nombreApellido.split(" ")
@@ -51,22 +72,24 @@ class RegisterActivity : AppCompatActivity() {
                 // Guardar datos del nuevo usuario en SharedPreferences
                 val prefs = getSharedPreferences("UserPrefs", MODE_PRIVATE)
                 prefs.edit()
-                    .clear() // Limpiamos datos anteriores
+                    .clear()
                     .putString("usuario", usuario)
                     .putString("nombre", nombre)
                     .putString("apellido", apellido)
                     .putString("numero", numero)
-                    .putString("dni", "")  // vacío por ahora
-                    .putString("correo", "") // vacío por ahora
+                    .putString("dni", "")
+                    .putString("correo", "")
+                    .putBoolean("isGoogleAuth", false) // 🔥 Login tradicional
                     .apply()
 
-                Toast.makeText(this, "Usuario registrado correctamente", Toast.LENGTH_SHORT).show()
-                // Abrir PerfilActivity
-                val intent = Intent(this, PerfilActivity::class.java)
+                Toast.makeText(this, "✅ Usuario registrado correctamente", Toast.LENGTH_SHORT).show()
+
+                // Ir a MainActivity
+                val intent = Intent(this, MainActivity::class.java)
                 startActivity(intent)
                 finish()
             } else {
-                Toast.makeText(this, "Error: el usuario ya existe", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "❌ Error al registrar. El usuario ya existe", Toast.LENGTH_SHORT).show()
             }
         }
 

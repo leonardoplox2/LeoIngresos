@@ -1,4 +1,4 @@
-package com.example.tusistema
+package com.example.myapp
 
 import android.content.ContentValues
 import android.content.Context
@@ -9,7 +9,7 @@ class DBhelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null
 
     companion object {
         private const val DATABASE_NAME = "usuarios.db"
-        private const val DATABASE_VERSION = 2   // 🔹 Subido para que actualice la tabla
+        private const val DATABASE_VERSION = 2
         private const val TABLE_NAME = "usuarios"
 
         private const val COL_ID = "id"
@@ -41,15 +41,22 @@ class DBhelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null
         onCreate(db)
     }
 
-    // 🔹 Insertar usuario nuevo (correo y dni vacíos al inicio)
+    // 🔥 INSERTAR USUARIO - CON VALIDACIÓN DE DUPLICADOS
     fun insertarUsuario(nombreApellido: String, usuario: String, password: String, numero: String): Boolean {
         val db = writableDatabase
+
+        // 🔥 Verificar si el usuario ya existe
+        if (usuarioExiste(usuario)) {
+            db.close()
+            return false
+        }
+
         val values = ContentValues().apply {
             put(COL_NOMBRE_APELLIDO, nombreApellido)
             put(COL_USUARIO, usuario)
             put(COL_PASSWORD, password)
             put(COL_NUMERO, numero)
-            put(COL_DNI, "")    // vacíos al registrar
+            put(COL_DNI, "")
             put(COL_CORREO, "")
         }
         val result = db.insert(TABLE_NAME, null, values)
@@ -57,7 +64,90 @@ class DBhelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null
         return result != -1L
     }
 
-    // 🔹 Verificar si usuario y contraseña son correctos
+    // 🔥 VERIFICAR SI UN USUARIO YA EXISTE
+    fun usuarioExiste(usuario: String): Boolean {
+        val db = readableDatabase
+        val query = "SELECT * FROM $TABLE_NAME WHERE $COL_USUARIO = ?"
+        val cursor = db.rawQuery(query, arrayOf(usuario))
+        val existe = cursor.count > 0
+        cursor.close()
+        db.close()
+        return existe
+    }
+
+    // 🔥 VERIFICAR SI UN NÚMERO YA EXISTE (para otro usuario)
+    fun numeroExiste(numero: String, usuarioActual: String? = null): Boolean {
+        if (numero.isBlank()) return false
+
+        val db = readableDatabase
+        val query = if (usuarioActual != null) {
+            "SELECT * FROM $TABLE_NAME WHERE $COL_NUMERO = ? AND $COL_USUARIO != ?"
+        } else {
+            "SELECT * FROM $TABLE_NAME WHERE $COL_NUMERO = ?"
+        }
+
+        val args = if (usuarioActual != null) {
+            arrayOf(numero, usuarioActual)
+        } else {
+            arrayOf(numero)
+        }
+
+        val cursor = db.rawQuery(query, args)
+        val existe = cursor.count > 0
+        cursor.close()
+        db.close()
+        return existe
+    }
+
+    // 🔥 VERIFICAR SI UN DNI YA EXISTE (para otro usuario)
+    fun dniExiste(dni: String, usuarioActual: String? = null): Boolean {
+        if (dni.isBlank()) return false
+
+        val db = readableDatabase
+        val query = if (usuarioActual != null) {
+            "SELECT * FROM $TABLE_NAME WHERE $COL_DNI = ? AND $COL_USUARIO != ?"
+        } else {
+            "SELECT * FROM $TABLE_NAME WHERE $COL_DNI = ?"
+        }
+
+        val args = if (usuarioActual != null) {
+            arrayOf(dni, usuarioActual)
+        } else {
+            arrayOf(dni)
+        }
+
+        val cursor = db.rawQuery(query, args)
+        val existe = cursor.count > 0
+        cursor.close()
+        db.close()
+        return existe
+    }
+
+    // 🔥 VERIFICAR SI UN CORREO YA EXISTE (para otro usuario)
+    fun correoExiste(correo: String, usuarioActual: String? = null): Boolean {
+        if (correo.isBlank()) return false
+
+        val db = readableDatabase
+        val query = if (usuarioActual != null) {
+            "SELECT * FROM $TABLE_NAME WHERE $COL_CORREO = ? AND $COL_USUARIO != ?"
+        } else {
+            "SELECT * FROM $TABLE_NAME WHERE $COL_CORREO = ?"
+        }
+
+        val args = if (usuarioActual != null) {
+            arrayOf(correo, usuarioActual)
+        } else {
+            arrayOf(correo)
+        }
+
+        val cursor = db.rawQuery(query, args)
+        val existe = cursor.count > 0
+        cursor.close()
+        db.close()
+        return existe
+    }
+
+    // Verificar si usuario y contraseña son correctos
     fun verificarUsuario(usuario: String, password: String): Boolean {
         val db = readableDatabase
         val query = "SELECT * FROM $TABLE_NAME WHERE $COL_USUARIO = ? AND $COL_PASSWORD = ?"
@@ -68,7 +158,7 @@ class DBhelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null
         return existe
     }
 
-    // 🔹 Obtener nombre completo
+    // Obtener nombre completo
     fun obtenerNombreCompleto(usuario: String): String? {
         val db = readableDatabase
         val query = "SELECT $COL_NOMBRE_APELLIDO FROM $TABLE_NAME WHERE $COL_USUARIO = ?"
@@ -82,7 +172,7 @@ class DBhelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null
         return nombreApellido
     }
 
-    // 🔹 Obtener todos los datos de un usuario
+    // Obtener todos los datos de un usuario
     fun obtenerUsuario(usuario: String): Map<String, String>? {
         val db = readableDatabase
         val query = "SELECT * FROM $TABLE_NAME WHERE $COL_USUARIO = ?"
@@ -102,9 +192,26 @@ class DBhelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null
         return datos
     }
 
-    // 🔹 Actualizar datos de un usuario
+    // 🔥 ACTUALIZAR USUARIO - CON VALIDACIÓN DE DUPLICADOS
     fun actualizarUsuario(usuario: String, nombreApellido: String, numero: String, dni: String, correo: String): Boolean {
         val db = writableDatabase
+
+        // 🔥 Validar que número, DNI y correo no estén duplicados
+        if (numero.isNotBlank() && numeroExiste(numero, usuario)) {
+            db.close()
+            return false
+        }
+
+        if (dni.isNotBlank() && dniExiste(dni, usuario)) {
+            db.close()
+            return false
+        }
+
+        if (correo.isNotBlank() && correoExiste(correo, usuario)) {
+            db.close()
+            return false
+        }
+
         val values = ContentValues().apply {
             put(COL_NOMBRE_APELLIDO, nombreApellido)
             put(COL_NUMERO, numero)
